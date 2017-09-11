@@ -5,7 +5,17 @@ const keys = require('../config/keys');
 
 const User = mongoose.model('User');
 
-// Passport Middleware
+passport.serializeUser((user, cb) => {
+  cb(null, user.id);
+});
+
+passport.deserializeUser((id, cb) => {
+  User.findById(id)
+    .then((user) => {
+      cb(null, user);
+    });
+});
+
 passport.use(
   new GoogleStrategy(
     {
@@ -13,8 +23,17 @@ passport.use(
       clientSecret: keys.googleClientSecret,
       callbackURL: '/auth/google/callback'
     },
-    (accessToken, refreshToken, profile, callback) => {
-      User.create({ googleId: profile.id, googleName: profile.displayName });
+    (accessToken, refreshToken, profile, cb) => {
+      User.findOne({ googleId: profile.id }).then((existingUser) => {
+        if (existingUser) {
+          // We already have a record with given profile id
+          cb(null, existingUser);
+        } else {
+          // We don't have a user record with this id. Create new record
+          User.create({ googleId: profile.id, googleName: profile.displayName })
+            .then(user => cb(null, user));
+        }
+      });
     }
   )
 );
